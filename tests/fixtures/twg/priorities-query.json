@@ -1,0 +1,28 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.priorities.query",
+  "request": {
+    "site": "text"
+  },
+  "data": [
+    {
+      "self": "text",
+      "statusColor": "text",
+      "description": "text",
+      "name": "text",
+      "id": "text"
+    }
+  ],
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "native",
+    "resourceType": "jira.priority",
+    "backend": "text",
+    "meta": {
+      "resourceClass": "entity",
+      "sourceMode": "rest",
+      "apiVersion": "rest-v3",
+      "resourceType": "jira.priority"
+    }
+  }
+}

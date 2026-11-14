@@ -1,0 +1,50 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.changelog.query",
+  "request": {
+    "site": "text",
+    "issueId": "text"
+  },
+  "data": [
+    {
+      "id": "text",
+      "author": {
+        "self": "text",
+        "accountId": "text",
+        "emailAddress": "text",
+        "displayName": "text",
+        "active": true,
+        "timeZone": "text",
+        "accountType": "text"
+      },
+      "created": "text",
+      "items": [
+        {
+          "field": "text",
+          "fieldtype": "text",
+          "fieldId": "text",
+          "from": null,
+          "fromString": null,
+          "to": "text",
+          "toString": "text"
+        }
+      ]
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "nextCursor": null
+  },
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "native",
+    "resourceType": "jira.changelog",
+    "backend": "text",
+    "apiVersion": "rest-v3",
+    "pagination": {
+      "startAt": 1,
+      "maxResults": 1,
+      "total": 1
+    }
+  }
+}

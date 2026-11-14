@@ -1,0 +1,30 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.statuses.query",
+  "request": {
+    "site": "text"
+  },
+  "data": [
+    {
+      "self": "text",
+      "description": "text",
+      "name": "text",
+      "untranslatedName": "text",
+      "id": "text",
+      "statusCategory": {
+        "self": "text",
+        "id": 1,
+        "key": "text",
+        "colorName": "text",
+        "name": "text"
+      }
+    }
+  ],
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "native",
+    "resourceType": "jira.status",
+    "backend": "text",
+    "apiVersion": "rest-v3"
+  }
+}

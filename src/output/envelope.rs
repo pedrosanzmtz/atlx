@@ -8,8 +8,9 @@
 //! ```
 //!
 //! as twg 1.4.4 does: `command` is twg's dotted operation name (not always
-//! the CLI path), `request` echoes the inputs, `pageInfo` only appears when
-//! another page exists, and `meta.resourceType` names what `data` holds.
+//! the CLI path), `request` echoes the inputs, `pageInfo` usually only
+//! appears when another page exists (see [`Envelope::page_info`] for the
+//! exceptions), and `meta.resourceType` names what `data` holds.
 //! Bitbucket commands print their payload without an envelope, also as twg
 //! does. In JSONL mode each element of the main collection is printed on its
 //! own line with a `_twg` locator (see [`jsonl_rows`]).
@@ -52,6 +53,13 @@ impl Envelope {
         if let Some(c) = cursor {
             self.page_info = Some(json!({"hasNextPage": true, "nextCursor": c.into()}));
         }
+        self
+    }
+
+    /// Set `pageInfo` as given. Offset-paged Jira lists (comments,
+    /// changelog) print it on every page, the last one included.
+    pub fn page_info(mut self, page_info: Value) -> Self {
+        self.page_info = Some(page_info);
         self
     }
 

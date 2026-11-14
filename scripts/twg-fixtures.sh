@@ -25,16 +25,18 @@ ISSUE_TYPE=${ISSUE_TYPE:-Task}
 mkdir -p "$OUT/rest"
 
 # Same shape, no data: strings, numbers and booleans become placeholders.
-# Custom field ids and twg's envelope labels (command, resourceType, ...)
-# are kept: they name things, not data. Object keys are field names; `self`
-# and other URLs are values and get replaced.
+# Custom field ids, twg's envelope labels (command, resourceType, ...) and
+# field operations (set, add, ...) are kept: they name things, not data.
+# Object keys are field names; `self` and other URLs are values and get
+# replaced.
 SANITIZE='
   def scrub($k):
     if type == "object" then with_entries(.key as $kk | .value |= scrub($kk))
+    elif type == "array" and $k == "operations" then .
     elif type == "array" then (if length > 0 then [.[0] | scrub($k)] else [] end)
     elif type == "string" then
       (if (($k == "fieldId" or $k == "key" or $k == "id") and test("^customfield_[0-9]+$"))
-          or ($k | IN("apiVersion", "command", "resourceType", "resourceClass", "sourceMode"))
+          or ($k | IN("apiVersion", "command", "resourceType", "resourceClass", "sourceMode", "operations"))
        then . else "text" end)
     elif type == "number" then 1
     else . end;
@@ -42,7 +44,8 @@ SANITIZE='
 
 for name in whoami space-query space-get workitem-query \
   workitem-get workitem-get-batch transitions-query create-metadata link-types \
-  board-query user-search; do
+  board-query user-search comment-query changelog-query update-metadata \
+  types-query statuses-query priorities-query; do
   f=$IN/$name.twg.json
   [ -s "$f" ] || {
     echo "skip $name (no $f)"
@@ -73,5 +76,16 @@ type_id=$("$ATLX" api jira "/rest/api/3/issue/createmeta/$SPACE/issuetypes" -o j
 rest createmeta "/rest/api/3/issue/createmeta/$SPACE/issuetypes/$type_id" \
   '(.fields // .values) |= map(select(.fieldId | startswith("customfield_")))'
 rest myself "/rest/api/3/myself"
+rest comments "/rest/api/3/issue/$KEY/comment?startAt=0&maxResults=100"
+rest changelog "/rest/api/3/issue/$KEY/changelog?startAt=0&maxResults=100"
+# Only the field twg's sanitized output kept (its first), so both sides
+# describe the same field.
+first_field=$(jq -r '.data.fields[0].id // empty' "$IN/update-metadata.twg.json" 2>/dev/null)
+rest editmeta "/rest/api/3/issue/$KEY/editmeta" \
+  ".fields |= with_entries(select(.key == \"$first_field\"))"
+project_id=$("$ATLX" api jira "/rest/api/3/project/$SPACE" -o json | jq -r .id)
+rest issuetype-project "/rest/api/3/issuetype/project?projectId=$project_id"
+rest statuses "/rest/api/3/status"
+rest priorities "/rest/api/3/priority"
 rest user-search "/rest/api/3/user/search?query=${USER_QUERY:-a}&maxResults=1"
 echo "Wrote $OUT; review the diff before committing."

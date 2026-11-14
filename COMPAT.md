@@ -90,7 +90,9 @@ repositories, so:
 | `whoami`, `user search` (with and without `--compact`) | Live side by side | Same key paths. `whoami` data comes from Jira's `myself`: `zoneinfo` is the Jira time zone (twg prints `null`) and `extendedProfile` is all `null`; profile, site and token source are in `meta` |
 | Jira `workitem get` (default, `--comments`, `--fields`, `--full`, several IDs), `workitem query` (rows, `--fields`, paging), `workitem search`, `transitions query`, `field create-metadata`, `link-types query`, `space query`, `space get`, `board query` | Live side by side | Same key paths and types. Differences in values only: `self` links use the site URL (twg goes through `api.atlassian.com`), and `meta` describes atlx's REST source instead of twg's backend |
 | Jira `board sprints query`, `sprint workitems query` | Inferred: the site has no sprints. Follows the pattern twg uses for the other Agile lists (REST page, `values` renamed `sprints`; work item rows as in `workitem query`) | Not verified |
-| Jira writes (`create`, `update`, `comment create`, `transition`, `link workitem`, `link weblink`) | Inferred (the run was read-only): REST responses with camelCase atlx additions (`url`, `commentId`, ...) | Not verified |
+| Jira `workitem comment query`, `changelog query` (default, `--first`, `--after`, `--order-by`), `field update-metadata` (with and without `--include-system-fields`), `types query` (`--project`, `--issue --level -n`, `--id`), `types get`, `statuses query`, `priorities query` (all, and by `--id`) | Live side by side ([#23](https://github.com/pedrosanzmtz/atlx/issues/23)) | Same key paths, and the same `data` values once the `self` host is normalised. Comment and changelog pages print `pageInfo` on the last page too (`hasNextPage: false`, `nextCursor: null`); `types query` adds top-level `warnings` when `--limit` cut the list or `--id` was used |
+| Jira `workitem link query` | Live, but the site's work items have no links, so only the empty list was compared. With links, the REST `issuelinks` entries are inferred | Partly verified |
+| Jira writes (`create`, `update`, `comment create`, `transition`, `link workitem`, `link weblink`, `comment update`, `comment delete`, `delete`, `unlink workitem`, `unlink weblink`) | Inferred (the run was read-only): REST responses with camelCase atlx additions (`url`, `commentId`, ...); deletes print `{id, deleted: true}`-style objects | Not verified |
 | Confluence `content get`, `search query`, `search text` | Inferred from twg's `--select` preset expansions (see `src/output/select.rs`): `id`, `type`, `title`, `status`, `spaceId`, `externalUrl`, `detail`, `snapshotToken`, `summary.{excerpt,wordCount,sectionCount}`, `outline[].{level,text,anchor}`, `body.{format,value}`; search passes REST's `results` through with `totalSize`, `size`, `nextCursor` | Not verified; `aiSummary` and `body.lossyConversion` are not produced. atlx adds `outline[].localId` and `outline[].wordCount`, and `body.sections` for `--section` reads. The `anchor` spelling (whitespace runs to `-`) is a guess |
 | Confluence `content update --edits` | Inferred from twg's help: the dry run's `data.body.value` holds the resulting HTML | Not verified; atlx's dry run also has `fromVersion`, `request` and a unified `diff` |
 | Other Confluence commands | Inferred: REST v2 objects with `externalUrl` and `snapshotToken`, lists as `{results, nextCursor}` | Not verified |
@@ -149,7 +151,7 @@ inferred rows.
 
 ## Jira
 
-161 twg commands: ✅ 14, 🟡 3, 📋 134, ⛔ 10.
+161 twg commands: ✅ 28, 🟡 2, 📋 121, ⛔ 10.
 
 | twg command | atlx | Notes |
 | --- | --- | --- |
@@ -243,35 +245,35 @@ inferred rows.
 | `jira workitem attachment upload` | 📋 | #24 |
 | `jira workitem bulk-get` | 📋 | #13 (unscheduled); REST v3 bulkfetch |
 | `jira workitem bulk-transition` | 📋 | #13 (unscheduled); REST v3 bulk transition |
-| `jira workitem changelog query` | 📋 | #23 |
+| `jira workitem changelog query` | ✅ | #23; one REST page per call, `--after` takes the previous page's `pageInfo.nextCursor`; GraphQL-only `--variables-json` not planned |
 | `jira workitem clone` | 📋 | #13 (unscheduled); read then create |
-| `jira workitem comment create` | 🟡 | missing `--parent-id` (#23); GraphQL-only `--variables-json` not planned |
-| `jira workitem comment delete` | 📋 | #23 |
-| `jira workitem comment query` | 📋 | #23 |
-| `jira workitem comment update` | 📋 | #23 |
+| `jira workitem comment create` | ✅ | `--parent-id` sends REST `parentId` (#23; inferred, not checked live); GraphQL-only `--variables-json` not planned |
+| `jira workitem comment delete` | ✅ | #23; GraphQL-only `--variables-json` not planned |
+| `jira workitem comment query` | ✅ | #23; one REST page per call, `--after` takes the previous page's `pageInfo.nextCursor`; GraphQL-only `--variables-json` not planned |
+| `jira workitem comment update` | ✅ | #23; GraphQL-only `--variables-json` not planned |
 | `jira workitem create` | ✅ | GraphQL-only `--variables-json` not planned |
 | `jira workitem create-bulk` | 📋 | #13 (unscheduled); REST v3 bulk create |
-| `jira workitem delete` | 📋 | #23 |
+| `jira workitem delete` | ✅ | #23; REST v3 issue delete, no confirmation as in twg; GraphQL-only `--input-json`, `--variables-json` not planned |
 | `jira workitem field create-metadata` | ✅ | #18; also reachable as `jira workitem custom-fields create-metadata` |
-| `jira workitem field update-metadata` | 📋 | #23; REST v3 editmeta |
+| `jira workitem field update-metadata` | ✅ | #23; REST v3 editmeta, custom fields unless `--include-system-fields` |
 | `jira workitem get` | ✅ | `--batch-concurrency` fetches in parallel and keeps input order (#18); GraphQL-only `--variables-json` not planned |
-| `jira workitem link artifact` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link branch` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link build` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link commit` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link deployment` | 📋 | #23; a remote link (REST v3 remotelink) |
+| `jira workitem link artifact` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link branch` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link build` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link commit` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link deployment` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
 | `jira workitem link goal` | ⛔ | Atlassian Goals link (GraphQL gateway) |
-| `jira workitem link loom` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link meeting` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link page` | 📋 | #23; a remote link (REST v3 remotelink) |
-| `jira workitem link pr` | 📋 | #23; a remote link (REST v3 remotelink) |
+| `jira workitem link loom` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link meeting` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link page` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
+| `jira workitem link pr` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
 | `jira workitem link project` | ⛔ | Atlassian Projects link (GraphQL gateway) |
-| `jira workitem link query` | 📋 | #23; issue links plus remote links |
-| `jira workitem link repo` | 📋 | #23; a remote link (REST v3 remotelink) |
+| `jira workitem link query` | ✅ | #23; the work item's REST `issuelinks`; GraphQL-only `--variables-json` not planned |
+| `jira workitem link repo` | 📋 | #13 (unscheduled); a remote link (REST v3 remotelink) |
 | `jira workitem link weblink` | ✅ | #18 |
 | `jira workitem link workitem` | ✅ | #18; `--id` is the side that reads with the outward phrase (`--id A --target-id B --link-type-id Blocks` means A blocks B), sent as REST `inwardIssue` |
 | `jira workitem link-types query` | ✅ | #18; REST returns every link type at once, so the GraphQL paging flags `--after`, `--before`, `--first`, `--last` and `--cloud-id`, `--variables-json` are not planned |
-| `jira workitem priorities query` | 📋 | #23 |
+| `jira workitem priorities query` | ✅ | #23; GraphQL-only `--variables-json` not planned |
 | `jira workitem project-link-candidates query` | ⛔ | Atlassian Projects relationship (Teamwork Graph) |
 | `jira workitem property delete` | 📋 | #13 (unscheduled); REST v3 issue properties |
 | `jira workitem property get` | 📋 | #13 (unscheduled); REST v3 issue properties |
@@ -280,26 +282,26 @@ inferred rows.
 | `jira workitem query` | 🟡 | `--before` and `--last` parse but return a usage error: REST search only pages forward (#18); GraphQL-only `--cloud-id`, `--field-sets-input`, `--issue-search-input`, `--namespace`, `--options`, `--save-jqlto-user-history`, `--scope`, `--variables-json`, `--view-config-input` not planned |
 | `jira workitem search` | ✅ |  |
 | `jira workitem similar` | ⛔ | semantic similarity needs Atlassian AI |
-| `jira workitem statuses query` | 📋 | #23 |
+| `jira workitem statuses query` | ✅ | #23; GraphQL-only `--variables-json` not planned |
 | `jira workitem transition` | ✅ |  |
 | `jira workitem transitions query` | ✅ |  |
-| `jira workitem types get` | 📋 | #23 |
-| `jira workitem types query` | 📋 | #23 |
+| `jira workitem types get` | ✅ | #23; GraphQL-only `--variables-json` not planned |
+| `jira workitem types query` | ✅ | #23; REST v3 `issuetype/project`; `--id` looks types up as `types get` does; GraphQL-only `--variables-json` not planned |
 | `jira workitem unarchive` | 📋 | #13 (unscheduled); REST v3 issue archival |
-| `jira workitem unlink artifact` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink branch` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink build` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink commit` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink deployment` | 📋 | #23; delete an issue link or remote link |
+| `jira workitem unlink artifact` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink branch` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink build` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink commit` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink deployment` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
 | `jira workitem unlink goal` | ⛔ | Atlassian Goals link (GraphQL gateway) |
-| `jira workitem unlink loom` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink meeting` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink page` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink pr` | 📋 | #23; delete an issue link or remote link |
+| `jira workitem unlink loom` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink meeting` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink page` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink pr` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
 | `jira workitem unlink project` | ⛔ | Atlassian Projects link (GraphQL gateway) |
-| `jira workitem unlink repo` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink weblink` | 📋 | #23; delete an issue link or remote link |
-| `jira workitem unlink workitem` | 📋 | #23; delete an issue link or remote link |
+| `jira workitem unlink repo` | 📋 | #13 (unscheduled); delete a remote link (REST v3 remotelink) |
+| `jira workitem unlink weblink` | ✅ | #23; `--url` deletes the one remote link pointing there |
+| `jira workitem unlink workitem` | ✅ | #23; GraphQL-only `--variables-json` not planned |
 | `jira workitem update` | 🟡 | missing `--original-estimate`, `--remaining-estimate`, `--sprint`, `--story-points`, `--team` (#25) |
 | `jira workitem vote add` | 📋 | #24 |
 | `jira workitem vote query` | 📋 | #24 |

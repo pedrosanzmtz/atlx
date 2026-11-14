@@ -1,6 +1,6 @@
 //! Jira Cloud REST v3 and Agile 1.0, shaped after twg's `jira` commands.
 
-use crate::client::Client;
+use crate::client::{ApiError, Client, ErrorKind};
 use crate::markup::{TextFormat, quote, to_adf};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::ValueEnum;
@@ -531,13 +531,13 @@ pub fn update(c: &Client, key: &str, u: Update) -> Result<Value> {
         }
     }
     if let Some((body, f)) = u.comment {
-        out["commentId"] = comment(c, key, body, f, None, false)?["id"].clone();
+        out["commentId"] = comment(c, key, body, f, None, false, None)?["id"].clone();
     }
     out["url"] = browse_url(c, key).into();
     Ok(out)
 }
 
-/// `jira workitem comment create`
+/// `jira workitem comment create`; `parent` makes it a reply.
 pub fn comment(
     c: &Client,
     key: &str,
@@ -545,8 +545,16 @@ pub fn comment(
     f: TextFormat,
     visibility: Option<(&str, &str)>,
     internal: bool,
+    parent: Option<&str>,
 ) -> Result<Value> {
     let mut req = json!({"body": to_adf(body, f)});
+    // A reply names its parent comment; REST takes the ID as a number.
+    if let Some(p) = parent {
+        req["parentId"] = p
+            .trim()
+            .parse::<u64>()
+            .map_or_else(|_| Value::from(p.trim()), Value::from);
+    }
     if let Some((kind, value)) = visibility {
         req["visibility"] = json!({"type": kind, "value": value});
     }
@@ -628,7 +636,7 @@ pub fn transition(
         "url": browse_url(c, key),
     });
     if let Some((body, f)) = transition_comment.filter(|_| !has_screen) {
-        out["commentId"] = comment(c, key, body, f, None, false)?["id"].clone();
+        out["commentId"] = comment(c, key, body, f, None, false, None)?["id"].clone();
     }
     Ok(out)
 }
@@ -1219,6 +1227,386 @@ pub fn link_remote(c: &Client, key: &str, w: &Weblink) -> Result<Value> {
         out["relationship"] = rel.into();
     }
     Ok(out)
+}
+
+/// `jira workitem link query`: the work item's issue links as REST lists
+/// them in its `issuelinks` field.
+pub fn link_query(c: &Client, key: &str) -> Result<Value> {
+    let v = c.get(
+        &format!("/rest/api/3/issue/{}", enc(key)),
+        &[("fields", "issuelinks")],
+    )?;
+    let mut links = match &v["fields"]["issuelinks"] {
+        Value::Array(a) => Value::Array(a.clone()),
+        _ => json!([]),
+    };
+    strip_media(&mut links);
+    Ok(links)
+}
+
+/// `jira workitem unlink workitem`
+pub fn unlink_workitem(c: &Client, link_id: &str) -> Result<Value> {
+    c.delete(&format!("/rest/api/3/issueLink/{}", enc(link_id)), &[])?;
+    Ok(json!({"linkId": link_id, "deleted": true}))
+}
+
+/// Which remote link `jira workitem unlink weblink` removes.
+#[derive(Clone, Copy, Debug)]
+pub enum WeblinkRef<'a> {
+    Id(&'a str),
+    GlobalId(&'a str),
+    /// The link whose `object.url` is this URL.
+    Url(&'a str),
+}
+
+/// `jira workitem unlink weblink`: by link ID, by global ID, or by finding
+/// the one remote link that points at a URL.
+pub fn unlink_weblink(c: &Client, key: &str, r: WeblinkRef) -> Result<Value> {
+    let base = format!("/rest/api/3/issue/{}/remotelink", enc(key));
+    let mut out = json!({"id": key});
+    match r {
+        WeblinkRef::Id(id) => {
+            c.delete(&format!("{base}/{}", enc(id)), &[])?;
+            out["linkId"] = id.into();
+        }
+        WeblinkRef::GlobalId(g) => {
+            c.delete(&base, &[("globalId", g)])?;
+            out["globalId"] = g.into();
+        }
+        WeblinkRef::Url(url) => {
+            let links = c.get(&base, &[])?;
+            let want = url.trim_end_matches('/');
+            let hits: Vec<&Value> = links
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|l| {
+                    l["object"]["url"]
+                        .as_str()
+                        .is_some_and(|u| u.trim_end_matches('/') == want)
+                })
+                .collect();
+            let id = match hits.as_slice() {
+                [l] => match &l["id"] {
+                    Value::Number(n) => n.to_string(),
+                    Value::String(s) => s.clone(),
+                    _ => bail!("the remote link for {url} has no ID"),
+                },
+                [] => {
+                    return Err(ApiError::new(
+                        ErrorKind::NotFound,
+                        format!("{key} has no remote link to {url}"),
+                    )
+                    .into());
+                }
+                many => {
+                    let ids: Vec<String> = many.iter().map(|l| l["id"].to_string()).collect();
+                    return Err(ApiError::usage(format!(
+                        "{key} has several remote links to {url} (IDs {}); pass --link-id",
+                        ids.join(", ")
+                    ))
+                    .into());
+                }
+            };
+            c.delete(&format!("{base}/{}", enc(&id)), &[])?;
+            out["linkId"] = id.into();
+            out["url"] = url.into();
+        }
+    }
+    out["deleted"] = true.into();
+    Ok(out)
+}
+
+// --- comments, changelog, delete ---------------------------------------------
+
+/// One offset page of a REST list, with what twg prints around it.
+pub struct OffsetPage {
+    pub data: Value,
+    pub start: usize,
+    pub max: usize,
+    pub total: Option<u64>,
+    /// The `startAt` of the next page, as a cursor string.
+    pub next: Option<String>,
+}
+
+impl OffsetPage {
+    /// twg's `pageInfo` for this page; it is printed on the last page too.
+    pub fn page_info(&self) -> Value {
+        json!({"hasNextPage": self.next.is_some(), "nextCursor": self.next})
+    }
+
+    /// twg's `meta.pagination`.
+    pub fn pagination(&self) -> Value {
+        json!({"startAt": self.start, "maxResults": self.max, "total": self.total})
+    }
+}
+
+/// A cursor from a previous page (`startAt` as a string) as an offset.
+pub fn offset_cursor(after: Option<&str>) -> Result<usize> {
+    match after.map(str::trim) {
+        None | Some("") => Ok(0),
+        Some(a) => a.parse().map_err(|_| {
+            ApiError::usage(format!(
+                "--after '{a}' is not a cursor from a previous page (a number)"
+            ))
+            .into()
+        }),
+    }
+}
+
+fn offset_page(
+    c: &Client,
+    path: &str,
+    list_key: &str,
+    extra: &[(&str, &str)],
+    start: usize,
+    max: usize,
+) -> Result<OffsetPage> {
+    let (s, m) = (start.to_string(), max.to_string());
+    let mut q = vec![("startAt", s.as_str()), ("maxResults", m.as_str())];
+    q.extend_from_slice(extra);
+    let v = c.get(path, &q)?;
+    let mut list = match &v[list_key] {
+        Value::Array(a) => Value::Array(a.clone()),
+        _ => json!([]),
+    };
+    strip_media(&mut list);
+    let len = list.as_array().map_or(0, Vec::len);
+    let total = v["total"].as_u64();
+    let end = start + len;
+    let more = match (total, v["isLast"].as_bool()) {
+        (_, Some(last)) => !last && len > 0,
+        (Some(t), None) => (end as u64) < t,
+        (None, None) => len > 0 && len >= max,
+    };
+    Ok(OffsetPage {
+        data: list,
+        start: v["startAt"].as_u64().map_or(start, |n| n as usize),
+        max: v["maxResults"].as_u64().map_or(max, |n| n as usize),
+        total,
+        next: more.then(|| end.to_string()),
+    })
+}
+
+/// `jira workitem comment query`: one page of REST comments. `order_by` is
+/// Jira's `orderBy` (`created`, `-created`, `+created`).
+pub fn comment_query(
+    c: &Client,
+    key: &str,
+    start: usize,
+    max: usize,
+    order_by: Option<&str>,
+) -> Result<OffsetPage> {
+    let mut q = Vec::new();
+    if let Some(o) = order_by {
+        q.push(("orderBy", o));
+    }
+    offset_page(
+        c,
+        &format!("/rest/api/3/issue/{}/comment", enc(key)),
+        "comments",
+        &q,
+        start,
+        max,
+    )
+}
+
+/// `jira workitem changelog query`: one page of REST changelog entries.
+pub fn changelog_query(c: &Client, key: &str, start: usize, max: usize) -> Result<OffsetPage> {
+    offset_page(
+        c,
+        &format!("/rest/api/3/issue/{}/changelog", enc(key)),
+        "values",
+        &[],
+        start,
+        max,
+    )
+}
+
+/// `jira workitem comment update`: the updated REST comment, with the same
+/// `issueKey` and `url` additions as `comment create`.
+pub fn comment_update(c: &Client, key: &str, id: &str, body: &str, f: TextFormat) -> Result<Value> {
+    let mut v = c.put(
+        &format!("/rest/api/3/issue/{}/comment/{}", enc(key), enc(id)),
+        &json!({"body": to_adf(body, f)}),
+    )?;
+    if v.is_object() {
+        v["issueKey"] = key.into();
+        v["url"] = format!("{}?focusedCommentId={id}", browse_url(c, key)).into();
+    }
+    strip_media(&mut v);
+    Ok(v)
+}
+
+/// `jira workitem comment delete`
+pub fn comment_delete(c: &Client, key: &str, id: &str) -> Result<Value> {
+    c.delete(
+        &format!("/rest/api/3/issue/{}/comment/{}", enc(key), enc(id)),
+        &[],
+    )?;
+    Ok(json!({"id": id, "issueId": key, "deleted": true}))
+}
+
+/// `jira workitem delete`
+pub fn delete(c: &Client, key: &str, delete_subtasks: bool) -> Result<Value> {
+    c.delete(
+        &format!("/rest/api/3/issue/{}", enc(key)),
+        &[(
+            "deleteSubtasks",
+            if delete_subtasks { "true" } else { "false" },
+        )],
+    )?;
+    Ok(json!({"id": key, "deleted": true, "deleteSubtasks": delete_subtasks}))
+}
+
+// --- edit metadata, types, statuses, priorities ------------------------------
+
+/// `acceptedInput` on the edit screen. Built-in text and label fields take
+/// a plain value there, and priorities read as options.
+fn edit_accepted_input(schema: &Value) -> &'static str {
+    if schema["type"] == "priority" {
+        return "option";
+    }
+    match accepted_input(schema) {
+        "text" | "multi-text" if schema.get("system").is_some() => "value",
+        other => other,
+    }
+}
+
+/// The fields of an edit screen in twg's shape, in REST order: custom
+/// fields only unless `include_system`. Fields with no operations can't be
+/// edited and are left out; `example` is only given for settable fields.
+pub fn edit_fields(fields: &Map<String, Value>, include_system: bool) -> Vec<Value> {
+    fields
+        .iter()
+        .filter(|(id, _)| include_system || id.starts_with("customfield_"))
+        .filter(|(_, f)| f["operations"].as_array().is_some_and(|o| !o.is_empty()))
+        .map(|(id, f)| {
+            let name = f["name"].as_str().unwrap_or(id);
+            let mut o = Map::new();
+            o.insert("id".into(), id.as_str().into());
+            o.insert("key".into(), f["key"].as_str().unwrap_or(id).into());
+            o.insert("name".into(), name.into());
+            o.insert("required".into(), f["required"].clone());
+            o.insert("schema".into(), f["schema"].clone());
+            for k in ["allowedValues", "defaultValue"] {
+                if let Some(v) = f.get(k) {
+                    o.insert(k.into(), v.clone());
+                }
+            }
+            o.insert("operations".into(), f["operations"].clone());
+            o.insert(
+                "acceptedInput".into(),
+                edit_accepted_input(&f["schema"]).into(),
+            );
+            let settable = f["operations"]
+                .as_array()
+                .is_some_and(|ops| ops.iter().any(|x| x == "set"));
+            if settable {
+                let first = f["allowedValues"]
+                    .as_array()
+                    .and_then(|a| a.first())
+                    .and_then(|a| a["value"].as_str().or(a["name"].as_str()))
+                    .unwrap_or("VALUE");
+                o.insert(
+                    "example".into(),
+                    format!("--field \"{name}={first}\"").into(),
+                );
+            }
+            Value::Object(o)
+        })
+        .collect()
+}
+
+/// `jira workitem field update-metadata`: `{"fields": [...]}` from REST
+/// `editmeta`.
+pub fn update_meta(c: &Client, key: &str, include_system: bool) -> Result<Value> {
+    let v = c.get(&format!("/rest/api/3/issue/{}/editmeta", enc(key)), &[])?;
+    let empty = Map::new();
+    let fields = v["fields"].as_object().unwrap_or(&empty);
+    let mut out = json!({"fields": edit_fields(fields, include_system)});
+    strip_media(&mut out);
+    Ok(out)
+}
+
+/// A project's key and numeric ID, from its key or ID.
+pub fn project_key_id(c: &Client, key_or_id: &str) -> Result<(String, String)> {
+    let v = c.get(&format!("/rest/api/3/project/{}", enc(key_or_id)), &[])?;
+    let id = match &v["id"] {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        _ => bail!("project {key_or_id} has no ID"),
+    };
+    let key = v["key"].as_str().unwrap_or(key_or_id).to_string();
+    Ok((key, id))
+}
+
+/// `jira workitem types query`: the issue types of a project (REST
+/// `issuetype/project`), optionally at one hierarchy level, up to `limit`,
+/// and how many there were before the limit.
+pub fn issue_types(
+    c: &Client,
+    project_id: &str,
+    level: Option<i64>,
+    limit: usize,
+) -> Result<(Value, usize)> {
+    let level = level.map(|l| l.to_string());
+    let mut q = vec![("projectId", project_id)];
+    if let Some(l) = &level {
+        q.push(("level", l));
+    }
+    let v = c.get("/rest/api/3/issuetype/project", &q)?;
+    let mut list: Vec<Value> = v.as_array().cloned().unwrap_or_default();
+    let found = list.len();
+    list.truncate(limit);
+    let mut out = Value::Array(list);
+    strip_media(&mut out);
+    Ok((out, found))
+}
+
+/// GET `{path}/{id}` for each ID, as a list.
+fn each(c: &Client, path: &str, ids: &[String]) -> Result<Value> {
+    let mut out = Vec::with_capacity(ids.len());
+    for id in ids {
+        out.push(c.get(&format!("{path}/{}", enc(id)), &[])?);
+    }
+    let mut out = Value::Array(out);
+    strip_media(&mut out);
+    Ok(out)
+}
+
+/// The numeric part of an ID or ARI (`ari:...:issue-type/10001`).
+pub fn entity_id(s: &str) -> String {
+    let s = s.trim();
+    if s.starts_with("ari:") {
+        return trailing_number(s).unwrap_or_else(|| s.to_string());
+    }
+    s.to_string()
+}
+
+/// `jira workitem types get`
+pub fn issue_types_get(c: &Client, ids: &[String]) -> Result<Value> {
+    each(c, "/rest/api/3/issuetype", ids)
+}
+
+/// `jira workitem statuses query`: every status, or the given ones.
+pub fn statuses(c: &Client, ids: &[String]) -> Result<Value> {
+    if !ids.is_empty() {
+        return each(c, "/rest/api/3/status", ids);
+    }
+    let mut v = c.get("/rest/api/3/status", &[])?;
+    strip_media(&mut v);
+    Ok(v)
+}
+
+/// `jira workitem priorities query`: every priority, or the given ones.
+pub fn priorities(c: &Client, ids: &[String]) -> Result<Value> {
+    if !ids.is_empty() {
+        return each(c, "/rest/api/3/priority", ids);
+    }
+    let mut v = c.get("/rest/api/3/priority", &[])?;
+    strip_media(&mut v);
+    Ok(v)
 }
 
 // --- agile: boards & sprints -------------------------------------------------

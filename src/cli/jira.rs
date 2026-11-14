@@ -440,6 +440,152 @@ pub(crate) enum WorkitemCmd {
         #[command(subcommand)]
         cmd: LinkTypesCmd,
     },
+    /// Remove issue links and remote web links
+    Unlink {
+        #[command(subcommand)]
+        cmd: UnlinkCmd,
+    },
+    /// Delete a work item
+    Delete {
+        /// Work item key, ID, ARI or URL
+        #[arg(value_name = "id", conflicts_with = "id")]
+        id_arg: Option<String>,
+        /// Same as the positional argument
+        #[arg(long)]
+        id: Option<String>,
+        /// Also delete the work item's subtasks (true or false; Jira refuses
+        /// to delete a work item with subtasks otherwise)
+        #[arg(long, value_name = "BOOL")]
+        delete_subtasks: Option<bool>,
+        /// Accepted for compatibility; nothing asks for confirmation
+        #[arg(long, short, hide = true)]
+        yes: bool,
+    },
+    /// Change history of a work item
+    Changelog {
+        #[command(subcommand)]
+        cmd: ChangelogCmd,
+    },
+    /// Issue types
+    Types {
+        #[command(subcommand)]
+        cmd: TypesCmd,
+    },
+    /// Work item statuses
+    Statuses {
+        #[command(subcommand)]
+        cmd: StatusesCmd,
+    },
+    /// Work item priorities
+    Priorities {
+        #[command(subcommand)]
+        cmd: PrioritiesCmd,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum ChangelogCmd {
+    /// One page of a work item's change history, oldest first
+    Query {
+        /// Work item key, ID, ARI or URL
+        #[arg(long)]
+        issue_id: String,
+        /// Page size [default: 100]
+        #[arg(long)]
+        first: Option<usize>,
+        /// Cursor from the previous page's pageInfo.nextCursor
+        #[arg(long)]
+        after: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum TypesCmd {
+    /// The issue types of a space (project)
+    Query {
+        /// Space key, ID, ARI or URL
+        #[arg(long)]
+        project: Option<String>,
+        /// Use the space of this work item
+        #[arg(long)]
+        issue: Option<String>,
+        /// Same as --project
+        #[arg(long)]
+        project_id: Option<String>,
+        /// Same as --project
+        #[arg(long)]
+        project_key: Option<String>,
+        /// Hierarchy level: -1 subtask, 0 standard, 1 epic
+        #[arg(long, allow_hyphen_values = true)]
+        level: Option<i64>,
+        /// Maximum number of types [default: 50]
+        #[arg(long, short = 'n', conflicts_with = "first")]
+        limit: Option<usize>,
+        /// Same as --limit
+        #[arg(long)]
+        first: Option<usize>,
+        /// Look up these type IDs instead (prefer `types get`); repeatable
+        #[arg(long)]
+        id: Vec<String>,
+    },
+    /// Issue types by ID or ARI
+    Get {
+        /// Issue type ID or ARI; repeat for several
+        #[arg(long, required = true)]
+        id: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum StatusesCmd {
+    /// Every status on the site, or the given ones
+    Query {
+        /// Status ID or ARI; repeat for several
+        #[arg(long)]
+        id: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum PrioritiesCmd {
+    /// Every priority on the site, or the given ones
+    Query {
+        /// Priority ID or ARI; repeat for several
+        #[arg(long)]
+        id: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum UnlinkCmd {
+    /// Delete a link between two work items
+    Workitem {
+        /// Issue link ID (see `jira workitem link query`)
+        #[arg(long)]
+        link_id: String,
+        /// Accepted for compatibility; nothing asks for confirmation
+        #[arg(long, short, hide = true)]
+        yes: bool,
+    },
+    /// Delete a remote web link from a work item
+    #[command(group(clap::ArgGroup::new("which").required(true).args(["link_id", "global_id", "url"])))]
+    Weblink {
+        /// Work item key, ID, ARI or URL
+        #[arg(long)]
+        id: String,
+        /// Remote link ID
+        #[arg(long)]
+        link_id: Option<String>,
+        /// The link's global ID
+        #[arg(long)]
+        global_id: Option<String>,
+        /// The linked URL; the one remote link pointing there is deleted
+        #[arg(long)]
+        url: Option<String>,
+        /// Accepted for compatibility; nothing asks for confirmation
+        #[arg(long, short, hide = true)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -452,6 +598,15 @@ pub(crate) enum WorkitemFieldCmd {
         /// Issue type name or ID; omit to list the space's issue types
         #[arg(long = "type")]
         issue_type: Option<String>,
+    },
+    /// Fields that can be edited on a work item, with allowed values
+    UpdateMetadata {
+        /// Work item key, ID, ARI or URL
+        #[arg(long)]
+        id: String,
+        /// List editable built-in fields too, not only custom fields
+        #[arg(long)]
+        include_system_fields: bool,
     },
 }
 
@@ -543,6 +698,50 @@ pub(crate) enum CommentCmd {
         visibility_role: Option<String>,
         #[arg(long)]
         visibility_group: Option<String>,
+        /// Reply to this comment (ID) on the same work item
+        #[arg(long)]
+        parent_id: Option<String>,
+    },
+    /// One page of a work item's comments
+    Query {
+        /// Work item key, ID, ARI or URL
+        #[arg(long)]
+        issue_id: String,
+        /// Page size [default: 100]
+        #[arg(long)]
+        first: Option<usize>,
+        /// Cursor from the previous page's pageInfo.nextCursor
+        #[arg(long)]
+        after: Option<String>,
+        /// created (oldest first) or -created (newest first)
+        #[arg(long, allow_hyphen_values = true)]
+        order_by: Option<String>,
+    },
+    /// Replace the body of a comment
+    Update {
+        /// Comment ID
+        #[arg(long)]
+        id: String,
+        /// Work item the comment is on
+        #[arg(long)]
+        issue_id: String,
+        /// New body; `-` reads stdin
+        #[arg(long)]
+        body: String,
+        #[arg(long, value_enum, default_value_t)]
+        body_format: TextFormat,
+    },
+    /// Delete a comment
+    Delete {
+        /// Comment ID
+        #[arg(long)]
+        id: String,
+        /// Work item the comment is on
+        #[arg(long)]
+        issue_id: String,
+        /// Accepted for compatibility; nothing asks for confirmation
+        #[arg(long, short, hide = true)]
+        yes: bool,
     },
 }
 
@@ -600,6 +799,12 @@ pub(crate) enum LinkCmd {
         /// Show the linked item as resolved
         #[arg(long)]
         resolved: bool,
+    },
+    /// The issue links of a work item
+    Query {
+        /// Work item key, ID, ARI or URL
+        #[arg(long)]
+        issue_id: String,
     },
     /// Old name of `jira workitem link-types query`
     #[command(hide = true)]
@@ -978,6 +1183,141 @@ fn weblink(c: &client::Client, key: &str, w: &jira::Weblink) -> Result<Value> {
         .data(jira::link_remote(c, key, w)?))
 }
 
+/// Default page size of the offset-paged work item lists, as in twg.
+const PAGE: usize = 100;
+
+/// `request` for an offset-paged work item list. A numeric cursor is
+/// echoed as a number, as twg does.
+fn page_request(c: &client::Client, key: &str, first: Option<usize>, after: Option<&str>) -> Value {
+    let mut r = json!({"site": jira::site(c), "issueId": key});
+    if let Some(f) = first {
+        r["first"] = f.into();
+    }
+    if let Some(a) = after {
+        r["after"] = a
+            .trim()
+            .parse::<u64>()
+            .map_or_else(|_| Value::from(a), Value::from);
+    }
+    r
+}
+
+fn offset_envelope(
+    command: &str,
+    resource_type: &str,
+    request: Value,
+    page: jira::OffsetPage,
+) -> Value {
+    envelope(command, resource_type)
+        .request(request)
+        .page_info(page.page_info())
+        .meta("pagination", page.pagination())
+        .data(page.data)
+}
+
+/// Add a top-level `warnings` list after `meta`, as twg prints it.
+fn with_warning(mut out: Value, warning: &str) -> Value {
+    out["warnings"] = json!([warning]);
+    out
+}
+
+/// `request` of the lookups that take repeated `--id`s.
+fn ids_request(c: &client::Client, ids: &[String]) -> Value {
+    let mut r = json!({"site": jira::site(c)});
+    if !ids.is_empty() {
+        r["ids"] = json!(ids);
+    }
+    r
+}
+
+/// A space key or ID from a key, ID, ARI, or a `/projects/KEY` or
+/// `/browse/KEY-1` URL.
+fn space_ref(s: &str) -> String {
+    let s = s.trim();
+    for marker in ["/projects/", "/browse/"] {
+        if let Some(i) = s.find(marker) {
+            let seg = s[i + marker.len()..]
+                .split(['/', '?', '#'])
+                .next()
+                .unwrap_or_default();
+            let seg = if marker == "/browse/" {
+                seg.rsplit_once('-').map_or(seg, |(k, _)| k)
+            } else {
+                seg
+            };
+            if !seg.is_empty() {
+                return seg.to_string();
+            }
+        }
+    }
+    project_ref(s)
+}
+
+fn types(c: &client::Client, cmd: TypesCmd) -> Result<Value> {
+    match cmd {
+        TypesCmd::Get { id } => {
+            let ids: Vec<String> = id.iter().map(|i| jira::entity_id(i)).collect();
+            Ok(envelope("jira.workitem.types.get", "jira.workitem-type")
+                .request(ids_request(c, &ids))
+                .data(jira::issue_types_get(c, &ids)?))
+        }
+        TypesCmd::Query { id, .. } if !id.is_empty() => {
+            let ids: Vec<String> = id.iter().map(|i| jira::entity_id(i)).collect();
+            let out = envelope("jira.workitem.types.query", "jira.workitem-type")
+                .request(ids_request(c, &ids))
+                .data(jira::issue_types_get(c, &ids)?);
+            Ok(with_warning(
+                out,
+                "`jira workitem types query --id` is an older form; use `jira workitem types get --id`.",
+            ))
+        }
+        TypesCmd::Query {
+            project,
+            issue,
+            project_id,
+            project_key,
+            level,
+            limit,
+            first,
+            id: _,
+        } => {
+            let project = match (project.or(project_id).or(project_key), issue) {
+                (Some(p), _) => space_ref(&p),
+                (None, Some(i)) => jira::issue_project(c, &issue_ref(&i))?,
+                (None, None) => {
+                    return Err(ApiError::usage(
+                        "pass --project (or --project-id, --project-key or --issue)",
+                    )
+                    .into());
+                }
+            };
+            let (key, project_id) = jira::project_key_id(c, &project)?;
+            let limit = limit.or(first).unwrap_or(50);
+            let mut request =
+                json!({"site": jira::site(c), "project": key, "projectId": project_id});
+            if let Some(l) = level {
+                request["level"] = l.into();
+            }
+            request["first"] = limit.into();
+            let (data, found) = jira::issue_types(c, &project_id, level, limit)?;
+            let out = envelope("jira.workitem.types.query", "jira.workitem-type")
+                .request(request)
+                .data(data);
+            Ok(if found > limit {
+                with_warning(
+                    out,
+                    &format!(
+                        "Only {limit} of the {found} issue types of {key} are shown; \
+                         raise --limit to {found} to see them all."
+                    ),
+                )
+            } else {
+                out
+            })
+        }
+    }
+}
+
 fn workitem(c: &client::Client, cmd: WorkitemCmd) -> Result<Value> {
     match cmd {
         WorkitemCmd::Get {
@@ -1168,6 +1508,7 @@ fn workitem(c: &client::Client, cmd: WorkitemCmd) -> Result<Value> {
                     internal,
                     visibility_role,
                     visibility_group,
+                    parent_id,
                 },
         } => {
             let visibility = match (&visibility_role, &visibility_group) {
@@ -1176,10 +1517,163 @@ fn workitem(c: &client::Client, cmd: WorkitemCmd) -> Result<Value> {
                 _ => None,
             };
             let key = issue_ref(&issue_id);
-            let data = jira::comment(c, &key, &text_arg(body)?, body_format, visibility, internal)?;
+            let parent = parent_id.as_deref().map(jira::entity_id);
+            let data = jira::comment(
+                c,
+                &key,
+                &text_arg(body)?,
+                body_format,
+                visibility,
+                internal,
+                parent.as_deref(),
+            )?;
+            let mut request = json!({"site": jira::site(c), "issueIdOrKey": key});
+            if let Some(p) = &parent {
+                request["parentId"] = p.as_str().into();
+            }
             Ok(envelope("jira.workitem.comment.create", "jira.comment")
-                .request(json!({"site": jira::site(c), "issueIdOrKey": key}))
+                .request(request)
                 .data(data))
+        }
+        WorkitemCmd::Comment {
+            cmd:
+                CommentCmd::Query {
+                    issue_id,
+                    first,
+                    after,
+                    order_by,
+                },
+        } => {
+            let key = issue_ref(&issue_id);
+            let start = jira::offset_cursor(after.as_deref())?;
+            let page =
+                jira::comment_query(c, &key, start, first.unwrap_or(PAGE), order_by.as_deref())?;
+            let mut request = page_request(c, &key, first, after.as_deref());
+            if let Some(o) = &order_by {
+                request["orderBy"] = o.as_str().into();
+            }
+            Ok(offset_envelope(
+                "jira.workitem.comment.query",
+                "jira.comment",
+                request,
+                page,
+            ))
+        }
+        WorkitemCmd::Comment {
+            cmd:
+                CommentCmd::Update {
+                    id,
+                    issue_id,
+                    body,
+                    body_format,
+                },
+        } => {
+            let key = issue_ref(&issue_id);
+            let id = jira::entity_id(&id);
+            let data = jira::comment_update(c, &key, &id, &text_arg(body)?, body_format)?;
+            Ok(envelope("jira.workitem.comment.update", "jira.comment")
+                .request(json!({"site": jira::site(c), "id": id, "issueId": key}))
+                .data(data))
+        }
+        WorkitemCmd::Comment {
+            cmd:
+                CommentCmd::Delete {
+                    id,
+                    issue_id,
+                    yes: _,
+                },
+        } => {
+            let key = issue_ref(&issue_id);
+            let id = jira::entity_id(&id);
+            Ok(envelope("jira.workitem.comment.delete", "jira.comment")
+                .request(json!({"site": jira::site(c), "id": id, "issueId": key}))
+                .data(jira::comment_delete(c, &key, &id)?))
+        }
+        WorkitemCmd::Changelog {
+            cmd:
+                ChangelogCmd::Query {
+                    issue_id,
+                    first,
+                    after,
+                },
+        } => {
+            let key = issue_ref(&issue_id);
+            let start = jira::offset_cursor(after.as_deref())?;
+            let page = jira::changelog_query(c, &key, start, first.unwrap_or(PAGE))?;
+            Ok(offset_envelope(
+                "jira.workitem.changelog.query",
+                "jira.changelog",
+                page_request(c, &key, first, after.as_deref()),
+                page,
+            ))
+        }
+        WorkitemCmd::Delete {
+            id_arg,
+            id,
+            delete_subtasks,
+            yes: _,
+        } => {
+            let Some(id) = id_arg.or(id) else {
+                return Err(
+                    ApiError::usage("pass the work item as an argument or with --id").into(),
+                );
+            };
+            let key = issue_ref(&id);
+            let subtasks = delete_subtasks.unwrap_or(false);
+            Ok(envelope("jira.workitem.delete", "jira.workitem")
+                .request(json!({"site": jira::site(c), "id": key, "deleteSubtasks": subtasks}))
+                .data(jira::delete(c, &key, subtasks)?))
+        }
+        WorkitemCmd::Unlink { cmd } => match cmd {
+            UnlinkCmd::Workitem { link_id, yes: _ } => {
+                let link_id = jira::entity_id(&link_id);
+                Ok(envelope("jira.workitem.unlink.workitem", "jira.issue-link")
+                    .request(json!({"site": jira::site(c), "linkId": link_id}))
+                    .data(jira::unlink_workitem(c, &link_id)?))
+            }
+            UnlinkCmd::Weblink {
+                id,
+                link_id,
+                global_id,
+                url,
+                yes: _,
+            } => {
+                let key = issue_ref(&id);
+                let which = match (&link_id, &global_id, &url) {
+                    (Some(l), _, _) => jira::WeblinkRef::Id(l),
+                    (None, Some(g), _) => jira::WeblinkRef::GlobalId(g),
+                    (None, None, Some(u)) => jira::WeblinkRef::Url(u),
+                    (None, None, None) => {
+                        return Err(ApiError::usage("pass --link-id, --global-id or --url").into());
+                    }
+                };
+                Ok(envelope("jira.workitem.unlink.weblink", "jira.remote-link")
+                    .request(json!({
+                        "site": jira::site(c),
+                        "id": key,
+                        "linkId": link_id,
+                        "globalId": global_id,
+                        "url": url,
+                    }))
+                    .data(jira::unlink_weblink(c, &key, which)?))
+            }
+        },
+        WorkitemCmd::Types { cmd } => types(c, cmd),
+        WorkitemCmd::Statuses {
+            cmd: StatusesCmd::Query { id },
+        } => {
+            let ids: Vec<String> = id.iter().map(|i| jira::entity_id(i)).collect();
+            Ok(envelope("jira.workitem.statuses.query", "jira.status")
+                .request(ids_request(c, &ids))
+                .data(jira::statuses(c, &ids)?))
+        }
+        WorkitemCmd::Priorities {
+            cmd: PrioritiesCmd::Query { id },
+        } => {
+            let ids: Vec<String> = id.iter().map(|i| jira::entity_id(i)).collect();
+            Ok(envelope("jira.workitem.priorities.query", "jira.priority")
+                .request(ids_request(c, &ids))
+                .data(jira::priorities(c, &ids)?))
         }
         WorkitemCmd::Transition {
             id,
@@ -1219,6 +1713,25 @@ fn workitem(c: &client::Client, cmd: WorkitemCmd) -> Result<Value> {
         WorkitemCmd::Field {
             cmd: WorkitemFieldCmd::CreateMetadata { space, issue_type },
         } => create_meta(c, &space, issue_type.as_deref()),
+        WorkitemCmd::Field {
+            cmd:
+                WorkitemFieldCmd::UpdateMetadata {
+                    id,
+                    include_system_fields,
+                },
+        } => {
+            let key = issue_ref(&id);
+            let mut request = json!({"site": jira::site(c), "id": key});
+            if include_system_fields {
+                request["includeSystemFields"] = true.into();
+            }
+            Ok(
+                envelope("jira.workitem.field.update-metadata", "jira.workitem.field")
+                    .request(request)
+                    .meta("resourceClass", "collection")
+                    .data(jira::update_meta(c, &key, include_system_fields)?),
+            )
+        }
         WorkitemCmd::CreateMeta { space, issue_type } => {
             deprecated(
                 "jira workitem create-meta",
@@ -1267,6 +1780,12 @@ fn workitem(c: &client::Client, cmd: WorkitemCmd) -> Result<Value> {
                     resolved,
                 },
             ),
+            LinkCmd::Query { issue_id } => {
+                let key = issue_ref(&issue_id);
+                Ok(envelope("jira.workitem.link.query", "jira.issue-link")
+                    .request(json!({"site": jira::site(c), "issueId": key}))
+                    .data(jira::link_query(c, &key)?))
+            }
             LinkCmd::Types => {
                 deprecated("jira workitem link types", "jira workitem link-types query");
                 link_types(c)
@@ -1379,6 +1898,64 @@ mod tests {
                 "expected error for: {bad}"
             );
         }
+    }
+
+    #[test]
+    fn parses_triage_commands() {
+        for ok in [
+            "atlx jira workitem comment create --issue-id PROJ-1 --body hi --parent-id 10001",
+            "atlx jira workitem comment query --issue-id PROJ-1 --first 20 --after 20 --order-by -created",
+            "atlx jira workitem comment query --issue-id PROJ-1 --order-by=-created",
+            "atlx jira workitem comment update --issue-id PROJ-1 --id 10001 --body x --body-format markdown",
+            "atlx jira workitem comment delete --issue-id PROJ-1 --id 10001",
+            "atlx jira workitem comment delete --issue-id PROJ-1 --id 10001 --yes",
+            "atlx jira workitem changelog query --issue-id PROJ-1 --first 5 --after 5",
+            "atlx jira workitem field update-metadata --id PROJ-1 --include-system-fields",
+            "atlx jira workitem link query --issue-id PROJ-1",
+            "atlx jira workitem unlink workitem --link-id 10500",
+            "atlx jira workitem unlink weblink --id PROJ-1 --link-id 7",
+            "atlx jira workitem unlink weblink --id PROJ-1 --global-id g",
+            "atlx jira workitem unlink weblink --id PROJ-1 --url https://e.x",
+            "atlx jira workitem delete PROJ-1",
+            "atlx jira workitem delete --id PROJ-1 --delete-subtasks true",
+            "atlx jira workitem types query",
+            "atlx jira workitem types query --project PROJ --level -1 -n 5",
+            "atlx jira workitem types query --issue PROJ-1 --first 3",
+            "atlx jira workitem types query --id 10001 --id 10002",
+            "atlx jira workitem types get --id 10001",
+            "atlx jira workitem statuses query",
+            "atlx jira workitem statuses query --id 3 --id 10000",
+            "atlx jira workitem priorities query --id 1",
+        ] {
+            if let Err(e) = Cli::try_parse_from(shell_words(ok)) {
+                panic!("{ok}: {e}");
+            }
+        }
+        for bad in [
+            "atlx jira workitem comment query",
+            "atlx jira workitem unlink weblink --id PROJ-1",
+            "atlx jira workitem unlink weblink --id PROJ-1 --link-id 7 --url https://e.x",
+            "atlx jira workitem delete PROJ-1 --id PROJ-2",
+            "atlx jira workitem delete PROJ-1 --delete-subtasks maybe",
+            "atlx jira workitem types get",
+            "atlx jira workitem types query -n 1 --first 2",
+        ] {
+            assert!(
+                Cli::try_parse_from(shell_words(bad)).is_err(),
+                "expected error for: {bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn space_refs_from_urls() {
+        assert_eq!(space_ref("PROJ"), "PROJ");
+        assert_eq!(
+            space_ref("https://a.atlassian.net/jira/software/projects/PROJ/boards/1"),
+            "PROJ"
+        );
+        assert_eq!(space_ref("https://a.atlassian.net/browse/PROJ-12"), "PROJ");
+        assert_eq!(space_ref("ari:cloud:jira:abc:project/10000"), "10000");
     }
 
     #[test]

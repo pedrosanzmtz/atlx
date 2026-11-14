@@ -1,0 +1,44 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.field.update-metadata",
+  "request": {
+    "site": "text",
+    "id": "text"
+  },
+  "data": {
+    "fields": [
+      {
+        "id": "customfield_10021",
+        "key": "customfield_10021",
+        "name": "text",
+        "required": false,
+        "schema": {
+          "type": "text",
+          "items": "text",
+          "custom": "text",
+          "customId": 1
+        },
+        "allowedValues": [
+          {
+            "self": "text",
+            "value": "text",
+            "id": "text"
+          }
+        ],
+        "operations": [
+          "add",
+          "set",
+          "remove"
+        ],
+        "acceptedInput": "text",
+        "example": "text"
+      }
+    ]
+  },
+  "meta": {
+    "resourceClass": "collection",
+    "sourceMode": "native",
+    "resourceType": "jira.workitem.field",
+    "backend": "text"
+  }
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "self": "text",
+    "id": "text",
+    "description": "text",
+    "iconUrl": "text",
+    "name": "text",
+    "untranslatedName": "text",
+    "subtask": false,
+    "avatarId": 1,
+    "hierarchyLevel": 1,
+    "scope": {
+      "type": "text",
+      "project": {
+        "id": "text"
+      }
+    }
+  }
+]

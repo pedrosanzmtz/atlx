@@ -1,0 +1,27 @@
+{
+  "fields": {
+    "customfield_10021": {
+      "required": false,
+      "schema": {
+        "type": "text",
+        "items": "text",
+        "custom": "text",
+        "customId": 1
+      },
+      "name": "text",
+      "key": "customfield_10021",
+      "operations": [
+        "add",
+        "set",
+        "remove"
+      ],
+      "allowedValues": [
+        {
+          "self": "text",
+          "value": "text",
+          "id": "text"
+        }
+      ]
+    }
+  }
+}

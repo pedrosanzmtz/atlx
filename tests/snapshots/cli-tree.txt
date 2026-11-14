@@ -70,21 +70,34 @@ atlx jira space query [--query <QUERY>] [--key <KEY>...] [--id <ID>...] [--type-
 atlx jira sprint issues (hidden) --sprint <SPRINT> (required) [--jql <JQL>] [--limit <LIMIT> [default: 25]]
 atlx jira sprint list (hidden) --board <BOARD> (required) [--state <STATE>] [--limit <LIMIT> [default: 25]]
 atlx jira sprint workitems query [--id <ID>] [--sprint-id <SPRINT_ID>] [--jql <JQL>] [--fields <FIELDS>] [--expand <EXPAND>] [--max-results <MAX_RESULTS> [default: 50]] [--start-at <START_AT> [default: 0]]
-atlx jira workitem comment create --issue-id <ISSUE_ID> (required) --body <BODY> (required) [--body-format <BODY_FORMAT> {html|markdown|plain} [default: html]] --internal [--visibility-role <VISIBILITY_ROLE>] [--visibility-group <VISIBILITY_GROUP>]
+atlx jira workitem changelog query --issue-id <ISSUE_ID> (required) [--first <FIRST>] [--after <AFTER>]
+atlx jira workitem comment create --issue-id <ISSUE_ID> (required) --body <BODY> (required) [--body-format <BODY_FORMAT> {html|markdown|plain} [default: html]] --internal [--visibility-role <VISIBILITY_ROLE>] [--visibility-group <VISIBILITY_GROUP>] [--parent-id <PARENT_ID>]
+atlx jira workitem comment delete --id <ID> (required) --issue-id <ISSUE_ID> (required) -y/--yes (hidden)
+atlx jira workitem comment query --issue-id <ISSUE_ID> (required) [--first <FIRST>] [--after <AFTER>] [--order-by <ORDER_BY>]
+atlx jira workitem comment update --id <ID> (required) --issue-id <ISSUE_ID> (required) --body <BODY> (required) [--body-format <BODY_FORMAT> {html|markdown|plain} [default: html]]
 atlx jira workitem create --space <SPACE> (required) [--type <ISSUE_TYPE> [default: Task]] --summary <SUMMARY> (required) [--description <DESCRIPTION>] [--description-format <DESCRIPTION_FORMAT> {html|markdown|plain} [default: html]] [--assignee <ASSIGNEE>] [--reporter <REPORTER>] [--priority <PRIORITY>] [--labels <LABELS>] [--parent <PARENT>] [--field <FIELD>...] [--fields-json <FIELDS_JSON>] -y/--yes
 atlx jira workitem create-meta (hidden) --space <SPACE> (required) [--type <ISSUE_TYPE>]
+atlx jira workitem delete [<id>] [--id <ID>] [--delete-subtasks <BOOL> {true|false}] -y/--yes (hidden)
 atlx jira workitem field create-metadata --space <SPACE> (required) [--type <ISSUE_TYPE>]
+atlx jira workitem field update-metadata --id <ID> (required) --include-system-fields
 atlx jira workitem get [<IDS>...] [--id <ID_FLAGS>...] [--issue-id <ISSUE_ID>] [--key <KEY>] [--fields <FIELDS>] [--field <FIELD>...] --comments --remote-links --full --strict [--batch-concurrency <N> [default: 5]]
 atlx jira workitem link create (hidden) --inward <INWARD> (required) --outward <OUTWARD> (required) --type <LINK_TYPE> (required) [--comment <COMMENT>] [--comment-format <COMMENT_FORMAT> {html|markdown|plain} [default: html]]
+atlx jira workitem link query --issue-id <ISSUE_ID> (required)
 atlx jira workitem link remote (hidden) --id <ID> (required) --url <URL> (required) --title <TITLE> (required) [--relationship <RELATIONSHIP>]
 atlx jira workitem link types (hidden)
 atlx jira workitem link weblink --id <ID> (required) --url <URL> (required) --title <TITLE> (required) [--global-id <GLOBAL_ID>] [--relationship <RELATIONSHIP>] [--application-name <APPLICATION_NAME>] [--application-type <APPLICATION_TYPE>] [--summary <SUMMARY>] [--icon-url <ICON_URL>] --resolved
 atlx jira workitem link workitem --id <ID> (required) --target-id <TARGET_ID>... (required) --link-type-id <LINK_TYPE_ID> (required)
 atlx jira workitem link-types query
+atlx jira workitem priorities query [--id <ID>...]
 atlx jira workitem query [<JQL_ARG>] [--jql <JQL>] [-n/--limit <LIMIT>] [--first <FIRST>] [--after <AFTER>] [--last <LAST>] [--before <BEFORE>] [--fields <FIELDS>]
 atlx jira workitem search <TEXT>... (required) [--limit <LIMIT>] [--first <FIRST>] [--after <AFTER>] [--fields <FIELDS>]
+atlx jira workitem statuses query [--id <ID>...]
 atlx jira workitem transition --id <ID> (required) [--transition-id <TRANSITION_ID>] [--field <FIELD>...] [--fields-json <FIELDS_JSON>] [--transition-comment <TRANSITION_COMMENT>] [--transition-comment-format <TRANSITION_COMMENT_FORMAT> {html|markdown|plain} [default: html]]
 atlx jira workitem transitions query --id <ID> (required)
+atlx jira workitem types get --id <ID>... (required)
+atlx jira workitem types query [--project <PROJECT>] [--issue <ISSUE>] [--project-id <PROJECT_ID>] [--project-key <PROJECT_KEY>] [--level <LEVEL>] [-n/--limit <LIMIT>] [--first <FIRST>] [--id <ID>...]
+atlx jira workitem unlink weblink --id <ID> (required) [--link-id <LINK_ID>] [--global-id <GLOBAL_ID>] [--url <URL>] -y/--yes (hidden)
+atlx jira workitem unlink workitem --link-id <LINK_ID> (required) -y/--yes (hidden)
 atlx jira workitem update --id <ID> (required) [--summary <SUMMARY>] [--description <DESCRIPTION>] [--description-format <DESCRIPTION_FORMAT> {html|markdown|plain} [default: html]] [--assignee <ASSIGNEE>] [--type <ISSUE_TYPE>] [--priority <PRIORITY>] [--labels <LABELS>] [--add-labels <ADD_LABELS>] [--remove-labels <REMOVE_LABELS>] [--parent <PARENT>] [--due-date <DUE_DATE>] [--fix-versions <FIX_VERSIONS>] [--add-fix-versions <ADD_FIX_VERSIONS>] [--remove-fix-versions <REMOVE_FIX_VERSIONS>] [--components <COMPONENTS>] [--add-components <ADD_COMPONENTS>] [--remove-components <REMOVE_COMPONENTS>] [--resolution <RESOLUTION>] [--field <FIELD>...] [--fields-json <FIELDS_JSON>] [--status <STATUS>] [--transition-comment <TRANSITION_COMMENT>] [--transition-comment-format <TRANSITION_COMMENT_FORMAT> {html|markdown|plain} [default: html]] [--comment <COMMENT>] [--comment-format <COMMENT_FORMAT> {html|markdown|plain} [default: html]]
 atlx login [--token <TOKEN>] [--token-cmd <CMD>] --no-verify -f/--force [--new-profile <NAME>]
 atlx logout

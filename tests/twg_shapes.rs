@@ -38,12 +38,24 @@ fn server() -> MockServer {
             return MockResponse::json(200, json!({"issueTypes": [{"id": "1", "name": "Task"}]}));
         } else if p.contains("/createmeta/") {
             "createmeta"
+        } else if p.ends_with("/comment") {
+            "comments"
+        } else if p.ends_with("/changelog") {
+            "changelog"
+        } else if p.ends_with("/editmeta") {
+            "editmeta"
         } else if p.starts_with("/rest/api/3/issue/") {
             "issue"
         } else if p == "/rest/agile/1.0/board" {
             "board"
         } else if p == "/rest/api/3/issueLinkType" {
             "link-types"
+        } else if p == "/rest/api/3/issuetype/project" {
+            "issuetype-project"
+        } else if p == "/rest/api/3/status" {
+            "statuses"
+        } else if p == "/rest/api/3/priority" {
+            "priorities"
         } else if p == "/rest/api/3/user/search" {
             "user-search"
         } else {
@@ -169,6 +181,50 @@ fn jira_and_user_output_matches_twg_shapes() {
         ("link-types", &["jira", "workitem", "link-types", "query"]),
         ("board-query", &["jira", "board", "query"]),
         ("user-search", &["user", "search", "--name", "alice"]),
+        (
+            "comment-query",
+            &[
+                "jira",
+                "workitem",
+                "comment",
+                "query",
+                "--issue-id",
+                "PROJ-1",
+            ],
+        ),
+        (
+            "changelog-query",
+            &[
+                "jira",
+                "workitem",
+                "changelog",
+                "query",
+                "--issue-id",
+                "PROJ-1",
+                "--first",
+                "2",
+            ],
+        ),
+        (
+            "update-metadata",
+            &[
+                "jira",
+                "workitem",
+                "field",
+                "update-metadata",
+                "--id",
+                "PROJ-1",
+            ],
+        ),
+        (
+            "types-query",
+            &["jira", "workitem", "types", "query", "--project", "PROJ"],
+        ),
+        ("statuses-query", &["jira", "workitem", "statuses", "query"]),
+        (
+            "priorities-query",
+            &["jira", "workitem", "priorities", "query"],
+        ),
     ];
     let mut problems = Vec::new();
     for (name, args) in cases {

@@ -172,10 +172,14 @@ comes from (`config`, `env` or `token_cmd`), never its value.
 | `jira workitem create` | `--space --type --summary --description[-format] --assignee --reporter --priority --labels --parent --field --fields-json` |
 | `jira workitem field create-metadata --space` | `--type` to inspect required/allowed fields for an issue type; also `custom-fields create-metadata` |
 | `jira workitem update --id` | fields, `--add-/--remove-labels`, components, fix versions, `--status`, `--comment` |
-| `jira workitem comment create` | `--issue-id --body --body-format`, visibility, `--internal` |
+| `jira workitem comment create\|query\|update\|delete` | `create`: `--issue-id --body --body-format`, visibility, `--internal`, `--parent-id` for a reply; `query`: `--issue-id`, `--first`, `--after` (cursor), `--order-by created\|-created`; `update`: `--issue-id --id --body`; `delete`: `--issue-id --id` |
+| `jira workitem changelog query --issue-id` | `--first`, `--after` (cursor); REST changelog entries with `items[].fromString/toString` |
+| `jira workitem delete <KEY>` | or `--id`; `--delete-subtasks true` |
+| `jira workitem field update-metadata --id` | editable custom fields with allowed values; `--include-system-fields` adds built-in ones |
+| `jira workitem types query\|get`, `statuses query`, `priorities query` | `types query --project\|--project-key\|--project-id\|--issue`, `--level`, `-n/--limit`; the others take repeated `--id` or list everything |
 | `jira workitem transition --id` | omit `--transition-id` to list; `--field`, `--transition-comment` |
 | `jira workitem transitions query --id` | includes required screen fields |
-| `jira workitem link-types query`, `jira workitem link workitem\|weblink` | `workitem`: `--id --target-id... --link-type-id` (`--id` reads with the outward phrase: A blocks B); `weblink`: `--id --url --title`, `--relationship`, `--global-id`, `--application-name/-type`, `--summary`, `--icon-url`, `--resolved` |
+| `jira workitem link-types query`, `jira workitem link workitem\|weblink\|query`, `jira workitem unlink workitem\|weblink` | `workitem`: `--id --target-id... --link-type-id` (`--id` reads with the outward phrase: A blocks B); `weblink`: `--id --url --title`, `--relationship`, `--global-id`, `--application-name/-type`, `--summary`, `--icon-url`, `--resolved`; `link query --issue-id`; `unlink workitem --link-id`; `unlink weblink --id` with one of `--link-id`, `--global-id`, `--url` |
 | `jira field list` | `--query`, `--custom-only` |
 | `jira space query\|list\|get` | `--query`, `--key`, `--id`, `--type-key`, `--status`, `--sort-by`, `--limit`/`--first`, `--start-at`; or `<id-or-key>` |
 | `jira board query`, `jira board sprints query`, `jira sprint workitems query` | boards by `--project`, `--issue`, `--type`, `--name`, `--filter-id`; sprints by `--id`/`--board-id` (ID, URL or name) or a space's only board, `--state`, `--current`; sprint work items by `--id`/`--sprint-id`, `--jql`, `--fields`; all take `--max-results`, `--start-at` |
@@ -274,8 +278,9 @@ print an envelope:
 - `command` is twg's operation name, which is not always the CLI path
   (`jira.workitem.transitions` for `transitions query`, `user-search.query`
   for `user search`, `user.get` for `whoami`). `request` echoes the inputs.
-  `pageInfo` appears only when there is another page; pass its `nextCursor`
-  to `--after`.
+  `pageInfo` appears only when there is another page (Jira comment and
+  changelog pages always print it, as twg does); pass its `nextCursor` to
+  `--after`.
 - `data` holds twg's key names. Most are Jira's and Confluence's own REST
   names: `jira workitem get` prints the REST issue with its fields next to
   `key` (`.data[0].status.name`, `.data[0].description` as ADF), `query` and

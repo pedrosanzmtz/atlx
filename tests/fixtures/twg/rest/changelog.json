@@ -1,0 +1,39 @@
+{
+  "self": "text",
+  "maxResults": 1,
+  "startAt": 1,
+  "total": 1,
+  "isLast": true,
+  "values": [
+    {
+      "id": "text",
+      "author": {
+        "self": "text",
+        "accountId": "text",
+        "emailAddress": "text",
+        "avatarUrls": {
+          "48x48": "text",
+          "24x24": "text",
+          "16x16": "text",
+          "32x32": "text"
+        },
+        "displayName": "text",
+        "active": true,
+        "timeZone": "text",
+        "accountType": "text"
+      },
+      "created": "text",
+      "items": [
+        {
+          "field": "text",
+          "fieldtype": "text",
+          "fieldId": "text",
+          "from": null,
+          "fromString": null,
+          "to": "text",
+          "toString": "text"
+        }
+      ]
+    }
+  ]
+}

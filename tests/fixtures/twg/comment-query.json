@@ -1,0 +1,66 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.comment.query",
+  "request": {
+    "site": "text",
+    "issueId": "text"
+  },
+  "data": [
+    {
+      "self": "text",
+      "id": "text",
+      "author": {
+        "self": "text",
+        "accountId": "text",
+        "emailAddress": "text",
+        "displayName": "text",
+        "active": true,
+        "timeZone": "text",
+        "accountType": "text"
+      },
+      "body": {
+        "type": "text",
+        "version": 1,
+        "content": [
+          {
+            "type": "text",
+            "content": [
+              {
+                "type": "text",
+                "text": "text"
+              }
+            ]
+          }
+        ]
+      },
+      "updateAuthor": {
+        "self": "text",
+        "accountId": "text",
+        "emailAddress": "text",
+        "displayName": "text",
+        "active": true,
+        "timeZone": "text",
+        "accountType": "text"
+      },
+      "created": "text",
+      "updated": "text",
+      "jsdPublic": true
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "nextCursor": null
+  },
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "native",
+    "resourceType": "jira.comment",
+    "backend": "text",
+    "apiVersion": "rest-v3",
+    "pagination": {
+      "startAt": 1,
+      "maxResults": 1,
+      "total": 1
+    }
+  }
+}

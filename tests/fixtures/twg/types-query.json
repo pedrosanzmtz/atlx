@@ -1,0 +1,40 @@
+{
+  "apiVersion": "v2",
+  "command": "jira.workitem.types.query",
+  "request": {
+    "site": "text",
+    "project": "text",
+    "projectId": "text",
+    "first": 1
+  },
+  "data": [
+    {
+      "self": "text",
+      "id": "text",
+      "description": "text",
+      "name": "text",
+      "untranslatedName": "text",
+      "subtask": false,
+      "avatarId": 1,
+      "hierarchyLevel": 1,
+      "scope": {
+        "type": "text",
+        "project": {
+          "id": "text"
+        }
+      }
+    }
+  ],
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "native",
+    "resourceType": "jira.workitem-type",
+    "backend": "text",
+    "meta": {
+      "resourceClass": "entity",
+      "sourceMode": "rest",
+      "apiVersion": "rest-v3",
+      "resourceType": "jira.workitem-type"
+    }
+  }
+}

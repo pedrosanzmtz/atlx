@@ -131,8 +131,19 @@ if [ -n "${KEY:-}" ]; then
   run transitions-query jira workitem transitions query --id "$KEY"
   issuetype=$("$TWG" jira workitem get "$KEY" -o json 2>/dev/null | jq -r '.data[0].issuetype.name')
   run create-metadata jira workitem field create-metadata --space "$SPACE" --type "$issuetype"
+  run comment-query jira workitem comment query --issue-id "$KEY"
+  run comment-query-page jira workitem comment query --issue-id "$KEY" --first 1 --after 1 --order-by=-created
+  run changelog-query jira workitem changelog query --issue-id "$KEY"
+  run changelog-query-page jira workitem changelog query --issue-id "$KEY" --first 1
+  run update-metadata jira workitem field update-metadata --id "$KEY"
+  run update-metadata-system jira workitem field update-metadata --id "$KEY" --include-system-fields
+  run link-query jira workitem link query --issue-id "$KEY"
+  run types-query-issue jira workitem types query --issue "$KEY" --level 0 -n 1
 fi
 run link-types jira workitem link-types query
+[ -n "$SPACE" ] && run types-query jira workitem types query --project "$SPACE"
+run statuses-query jira workitem statuses query
+run priorities-query jira workitem priorities query
 run board-query jira board query
 if [ -n "$BOARD" ]; then
   run board-sprints jira board sprints query --board-id "$BOARD"

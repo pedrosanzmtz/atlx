@@ -71,18 +71,29 @@ ok jira workitem transition --id PROJ-1
 ok jira workitem transitions query --id PROJ-1
 ok jira workitem comment create --issue-id PROJ-1 --body 'Looks good'
 ok jira workitem comment create --issue-id PROJ-1 --body '**done**' --body-format markdown --visibility-role Developers
-gap #23 jira workitem comment create --issue-id PROJ-1 --body 'Agreed' --parent-id 10001
-gap #23 jira workitem comment query --issue-id PROJ-1
-gap #23 jira workitem comment update --issue-id PROJ-1 --id 10001 --body 'Edited'
-gap #23 jira workitem comment delete --issue-id PROJ-1 --id 10001
-gap #23 jira workitem changelog query --issue-id PROJ-1 --first 20
-gap #23 jira workitem field update-metadata --id PROJ-1
-gap #23 jira workitem delete PROJ-1
-gap #23 jira workitem link query --issue-id PROJ-1
-gap #23 jira workitem types query
-gap #23 jira workitem statuses query
-gap #23 jira workitem priorities query
-gap #23 jira workitem unlink workitem --link-id 10500
+ok jira workitem comment create --issue-id PROJ-1 --body 'Agreed' --parent-id 10001
+ok jira workitem comment query --issue-id PROJ-1
+ok jira workitem comment update --issue-id PROJ-1 --id 10001 --body 'Edited'
+ok jira workitem comment delete --issue-id PROJ-1 --id 10001
+ok jira workitem changelog query --issue-id PROJ-1 --first 20
+ok jira workitem field update-metadata --id PROJ-1
+ok jira workitem delete PROJ-1
+ok jira workitem link query --issue-id PROJ-1
+ok jira workitem types query
+ok jira workitem statuses query
+ok jira workitem priorities query
+ok jira workitem unlink workitem --link-id 10500
+ok jira workitem unlink weblink --id PROJ-1 --link-id 10600
+ok jira workitem unlink weblink --id PROJ-1 --url https://example.com/spec
+ok jira workitem comment query --issue-id PROJ-1 --first 50 --after 50 --order-by=-created
+ok jira workitem changelog query --issue-id PROJ-1 --first 20 --after 20
+ok jira workitem field update-metadata --id PROJ-1 --include-system-fields
+ok jira workitem delete --id PROJ-1 --delete-subtasks true
+ok jira workitem types query --project PROJ --level 0 --limit 10
+ok jira workitem types query --issue PROJ-1
+ok jira workitem types get --id 10001 --id 10002
+ok jira workitem statuses query --id 3
+ok jira workitem priorities query --id 1 --id 2
 gap #24 jira workitem attachment query --issue-id PROJ-1
 gap #24 jira workitem attachment upload --issue-id PROJ-1 --file report.pdf
 gap #24 jira workitem worklog add --issue-id PROJ-1 --time-spent 2h --comment 'Pairing'
